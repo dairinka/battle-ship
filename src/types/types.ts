@@ -1,7 +1,7 @@
 type TypeRequest =
   | 'reg'
   | 'create_room'
-  | 'add_player_to_room'
+  | 'add_user_to_room'
   | 'add_ships'
   | 'attack'
   | 'randomAttack';
@@ -19,12 +19,23 @@ const enum Id {
 
 export interface IUserRequest {
   type: TypeRequest;
-  data: IRegRequest | string | IAddPlayerToRoomRequest | IAddShipRequest | IAttackRequest;
+  data:
+    | IRegRequest
+    | string
+    | IAddPlayerToRoomRequest
+    | IAddShipRequest
+    | IAttackRequest
+    | IRandomAttackRequest;
+  id: Id.zero;
+}
+export interface IUserRequest2 {
+  type: TypeRequest;
+  data: string;
   id: Id.zero;
 }
 
 export interface IServerResponse {
-  type: TypeRequest;
+  type: TypeResponse;
   data:
     | IRegResponse
     | IUpdateWinner[]
@@ -35,8 +46,13 @@ export interface IServerResponse {
     | IFinishGameResponse;
   id: Id.zero;
 }
+export interface IServerResponse2 {
+  type: TypeResponse;
+  data: string;
+  id: Id.zero;
+}
 
-interface IRegRequest {
+export interface IRegRequest {
   name: string;
   password: string;
 }
@@ -77,7 +93,7 @@ interface IRandomAttackRequest {
   indexPlayer: number;
 }
 
-interface IRegResponse {
+export interface IRegResponse {
   name: string;
   index: number;
   error: boolean;
@@ -117,4 +133,9 @@ interface IPlayerTurnResponse {
 
 interface IFinishGameResponse {
   winPlayer: number;
+}
+
+export interface IUserInfo {
+  name: string;
+  index: number;
 }
