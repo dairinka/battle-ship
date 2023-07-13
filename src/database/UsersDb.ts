@@ -35,7 +35,7 @@ class UsersDb {
         password: data.password,
         wsId,
       };
-      console.log('newUser', newUser);
+
       this.database.set(data.name, newUser);
 
       return {
@@ -45,7 +45,7 @@ class UsersDb {
         errorText: '',
       };
     }
-    console.log('user exist');
+
     this.checkUser(data);
   }
 
@@ -83,7 +83,6 @@ class UsersDb {
   }
 
   isUserExist(userName: string) {
-    console.log(this.database.has(userName));
     return this.database.has(userName);
   }
 }
