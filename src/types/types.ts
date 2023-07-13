@@ -10,6 +10,7 @@ type TypeResponse =
   | 'update_winners'
   | 'create_game'
   | 'update_room'
+  | 'start_game'
   | 'attack'
   | 'turn'
   | 'finish';
@@ -41,7 +42,8 @@ export interface IServerResponse {
     | IUpdateWinner[]
     | ICreateGameResponse
     | IUpdateRoomStateResponse[]
-    | IAtackResponse
+    | IStartGameResponse
+    | IAttackResponse
     | IPlayerTurnResponse
     | IFinishGameResponse;
   id: Id.zero;
@@ -57,38 +59,34 @@ export interface IRegRequest {
   password: string;
 }
 
-// interface ICreateRoomRequest {
-//   data: string;
-// }
-
-interface IAddPlayerToRoomRequest {
+export interface IAddPlayerToRoomRequest {
   indexRoom: number;
 }
 
-interface IAddShipRequest {
+export interface IAddShipRequest {
   gameId: number;
-  ships: [
-    {
-      position: {
-        x: number;
-        y: number;
-      };
-      direction: boolean;
-      length: number;
-      type: 'small' | 'medium' | 'large' | 'huge';
-    },
-  ];
+  ships: IShip[];
   indexPlayer: number;
 }
 
-interface IAttackRequest {
-  gameID: number;
+export interface IShip {
+  position: {
+    x: number;
+    y: number;
+  };
+  direction: boolean;
+  type: 'small' | 'medium' | 'large' | 'huge';
+  length: number;
+}
+
+export interface IAttackRequest {
+  gameId: number;
   x: number;
   y: number;
   indexPlayer: number;
 }
 
-interface IRandomAttackRequest {
+export interface IRandomAttackRequest {
   gameID: number;
   indexPlayer: number;
 }
@@ -110,15 +108,29 @@ interface ICreateGameResponse {
   idPlayer: string;
 }
 
-interface IUpdateRoomStateResponse {
+export interface IUpdateRoomStateResponse {
   roomId: number;
   roomUsers: {
     name: string;
     index: number;
-  };
+  }[];
 }
 
-interface IAtackResponse {
+export interface IStartGameResponse {
+  ships: IShipResponse[];
+  currentPlayerIndex: number;
+}
+
+export interface IShipResponse {
+  position: {
+    x: number;
+    y: number;
+  };
+  direction: boolean;
+  length: number;
+  type: 'small' | 'medium' | 'large' | 'huge';
+}
+export interface IAttackResponse {
   position: {
     x: number;
     y: number;
@@ -127,7 +139,7 @@ interface IAtackResponse {
   status: 'miss' | 'killed' | 'shot';
 }
 
-interface IPlayerTurnResponse {
+export interface IPlayerTurnResponse {
   currentPlayer: number;
 }
 
