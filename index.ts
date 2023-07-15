@@ -8,3 +8,7 @@ httpServer.listen(HTTP_PORT);
 process.on('SIGINT', () => {
   process.exit();
 });
+
+process.on('unhandledRejection', () => {
+  console.log('something went wrong');
+});
