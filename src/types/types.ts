@@ -87,7 +87,7 @@ export interface IAttackRequest {
 }
 
 export interface IRandomAttackRequest {
-  gameID: number;
+  gameId: number;
   indexPlayer: number;
 }
 
@@ -98,7 +98,7 @@ export interface IRegResponse {
   errorText: string;
 }
 
-interface IUpdateWinner {
+export interface IUpdateWinner {
   name: string;
   wins: string;
 }
