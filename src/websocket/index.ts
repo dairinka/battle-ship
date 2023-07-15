@@ -1,8 +1,9 @@
 import Websocket, { WebSocketServer } from 'ws';
 import { parseUserData } from '../processing/parseUserData';
 import { currentGameRooms } from '../database/GameRooms';
-import { IAddShipRequest, IServerResponse2, IUserRequest2 } from '../types/types';
+import { IAddShipRequest, IServerResponse2, IUpdateWinner, IUserRequest2 } from '../types/types';
 import { seaButtle } from '../database/ShipsDb';
+import { currentUserDb } from '../database/UsersDb';
 
 type gameid = number;
 type wsIdFirstPlayer = number;
@@ -19,12 +20,9 @@ wss.on('connection', (ws: Websocket) => {
   const connectId = wsId;
   connectedWs.set(connectId, ws);
   ws.on('message', (buffer: Buffer) => {
-    console.log('////////////////////////////////');
-    console.log('msg from user: ', JSON.parse(buffer.toString()));
     const userRequest: IUserRequest2 = JSON.parse(buffer.toString());
 
     const serverAnswer = parseUserData(userRequest, connectId);
-    console.log('info from server: ', JSON.stringify(serverAnswer));
 
     if (userRequest.type === 'add_ships') {
       const requestData = JSON.parse(userRequest.data) as IAddShipRequest;
@@ -44,41 +42,103 @@ wss.on('connection', (ws: Websocket) => {
                 id: 0,
               };
 
+              const turnAnswer: IServerResponse2 = {
+                type: 'turn',
+                data: JSON.stringify(seaButtle.getTurn(requestData.gameId)),
+                id: 0,
+              };
+              const winData: IUpdateWinner[] = currentUserDb.getAllWinners();
+
+              const updateWin: IServerResponse2 = {
+                type: 'update_winners',
+                data: JSON.stringify(winData),
+                id: 0,
+              };
+
               connectedWs.get(wsIdsPlayers[i]).send(JSON.stringify(serverResponse));
+              connectedWs.get(wsIdsPlayers[i]).send(JSON.stringify(updateWin));
+              connectedWs.get(wsIdsPlayers[i]).send(JSON.stringify(turnAnswer));
             }
           }
         } else {
           gameInfo.set(requestData.gameId, [wsIdIfShipAddToDb]);
         }
       }
+    } else if (
+      (userRequest.type === 'attack' || userRequest.type === 'randomAttack') &&
+      Array.isArray(serverAnswer)
+    ) {
+      const gameId = JSON.parse(userRequest.data).gameId;
+
+      const wsIdArr = gameInfo.get(gameId);
+      wsIdArr.forEach((wsid) => {
+        serverAnswer.forEach((answer) => {
+          connectedWs.get(wsid).send(JSON.stringify(answer));
+        });
+      });
+
+      const currentPlayer = JSON.parse(userRequest.data).indexPlayer;
+      const anotherPlayer = seaButtle
+        .getIndexesPlayersByGameId(gameId)
+        .find((ind) => ind !== currentPlayer);
+      const isGameOver = seaButtle.isGameFinish(gameId, anotherPlayer);
+
+      if (isGameOver) {
+        const newServerAnswer: IServerResponse2 = {
+          type: 'finish',
+          data: JSON.stringify({ winPlayer: currentPlayer }),
+          id: 0,
+        };
+        const currentUserName = currentUserDb.getUserNameByIndexPlayer(currentPlayer);
+
+        currentUserDb.addWinToUserByName(currentUserName);
+
+        const winData: IUpdateWinner[] = currentUserDb.getAllWinners();
+
+        const updateWin: IServerResponse2 = {
+          type: 'update_winners',
+          data: JSON.stringify(winData),
+          id: 0,
+        };
+        const currentRoom = currentGameRooms.getRoomNumberByIdGame(gameId);
+        currentGameRooms.closeRoom(currentRoom);
+        wsIdArr.forEach((wsid) => {
+          connectedWs.get(wsid).send(JSON.stringify(newServerAnswer));
+          connectedWs.get(wsid).send(JSON.stringify(updateWin));
+        });
+      } else {
+        const newServerAnswer: IServerResponse2 = {
+          type: 'turn',
+          data: JSON.stringify(seaButtle.getTurn(gameId)),
+          id: 0,
+        };
+        wsIdArr.forEach((wsid) => {
+          connectedWs.get(wsid).send(JSON.stringify(newServerAnswer));
+        });
+      }
     } else {
       ws.send(JSON.stringify(serverAnswer));
     }
     try {
       connectedWs.forEach((connect, innerConnectId) => {
-        if (connect !== ws && serverAnswer.type === 'update_room') {
+        if (!Array.isArray(serverAnswer) && connect !== ws && serverAnswer.type === 'update_room') {
           connect.send(JSON.stringify(serverAnswer));
-          //Todo update winners after reg
         }
-        if (serverAnswer.type === 'create_game') {
+        if (!Array.isArray(serverAnswer) && serverAnswer.type === 'create_game') {
           const idCurrentGame = JSON.parse(serverAnswer.data).idGame;
-          console.log('idCurrentGame', idCurrentGame);
           const idCurrentRoom = JSON.parse(userRequest.data).indexRoom as number;
-          console.log('idCurrentRoom', idCurrentRoom);
           const wsInCurrentRoom: number[] =
             currentGameRooms.getWsIdsinOneRoomByRoomIndex(idCurrentRoom);
-          console.log('wsInCurrentRoom', wsInCurrentRoom);
+
           if (wsInCurrentRoom.includes(innerConnectId) && innerConnectId !== connectId) {
             const idSecondUser = currentGameRooms.getUserIdsinOneRoomByRoomIndex(idCurrentRoom)[0];
-            console.log('idSecondUser', idSecondUser);
 
             const dataForCreateGame = {
               idGame: idCurrentGame,
               idPlayer: idSecondUser,
             };
-            console.log('dataForCreateGame', dataForCreateGame);
 
-            const createGame = {
+            const createGame: IServerResponse2 = {
               type: 'create_game',
               data: JSON.stringify(dataForCreateGame),
               id: 0,
@@ -94,29 +154,11 @@ wss.on('connection', (ws: Websocket) => {
           };
           connect.send(JSON.stringify(updateRoom));
         }
-        if (serverAnswer.type === 'attack') {
-          const gameId = JSON.parse(userRequest.data).gameId;
-          console.log('gameId', gameId);
-          const whomNextTurn = seaButtle.currentPlayer.get(gameId);
-          console.log('whomNextTurn', whomNextTurn);
-          const wsIdNextPlayer = seaButtle.wsIdDb.get(gameId)[whomNextTurn];
-          console.log('wsIdNextPlayer', wsIdNextPlayer);
-          const wsIdcurrentPlayer = Object.values(seaButtle.wsIdDb.get(gameId)).filter(
-            (wsId) => wsId !== wsIdNextPlayer
-          )[0];
-          console.log(wsIdcurrentPlayer);
-          const newServerAnswer: IServerResponse2 = {
-            type: 'turn',
-            data: JSON.stringify(seaButtle.getTurn(gameId)),
-            id: 0,
-          };
-          if (innerConnectId === wsIdNextPlayer || innerConnectId === wsIdcurrentPlayer) {
-            connect.send(JSON.stringify(newServerAnswer));
-          }
+        if (userRequest.type === 'attack') {
         }
       });
     } catch (err) {
-      console.log('Something went wrong', err);
+      console.log('Something went wrong');
     }
   });
 
@@ -125,6 +167,6 @@ wss.on('connection', (ws: Websocket) => {
   });
 
   ws.on('error', (err) => {
-    console.log('error:', err);
+    console.log('error');
   });
 });
