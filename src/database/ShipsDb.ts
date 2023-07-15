@@ -13,6 +13,10 @@ type gameId = number;
 type indexPlayer = number;
 type wsId = number;
 type statusCeil = 'miss' | 'killed' | 'shot';
+interface IPosition {
+  x: number;
+  y: number;
+}
 interface IGameDb {
   [key: indexPlayer]: IShipDb[];
 }
@@ -24,18 +28,21 @@ interface IShipDb {
   type: 'small' | 'medium' | 'large' | 'huge' | 'none';
   length: number;
 }
+type shot = 0 | 1;
 
 class SeaBattleGame {
   gameDb: Map<gameId, IGameDb[]>;
   saveRequest: Map<number, IStartGameResponse>;
   currentPlayer: Map<gameId, indexPlayer>;
   wsIdDb: Map<gameId, { [key: indexPlayer]: wsId }>;
+  shotDb: Map<gameId, { [key: indexPlayer]: shot[][] }>;
 
   constructor() {
     this.gameDb = new Map();
     this.saveRequest = new Map();
     this.currentPlayer = new Map();
     this.wsIdDb = new Map();
+    this.shotDb = new Map();
   }
 
   addShipOnePlayer(data: IAddShipRequest, wsId: number): number | boolean {
@@ -50,20 +57,15 @@ class SeaBattleGame {
       } else {
         this.wsIdDb.set(data.gameId, { [data.indexPlayer]: wsId });
       }
-      console.log(
-        'ShipsDb: this.wsIdDb.get(data.gameId)',
-        data.gameId,
-        this.wsIdDb.get(data.gameId)
-      );
 
       const response = {
         ships: data.ships,
         currentPlayerIndex: currentPlayer,
       };
-      console.log('*********');
-      console.log('ShipsDb: response', response);
+
       this.saveRequest.set(wsId, response);
 
+      this.createPlayerShotDb(data.gameId, data.indexPlayer);
       const allShip = [];
 
       data.ships.forEach((currentShip) => {
@@ -89,96 +91,164 @@ class SeaBattleGame {
             y: direction ? position.y + i : position.y,
             state: true,
           });
+        }
+
+        for (let i = 0; i < ship.position.length; i += 1) {
+          const newposition = ship.position[i];
           if (direction) {
-            if (position.x > 0 && position.x < 9) {
-              if (position.y > 0 && i === 0) {
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y - 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x, y: position.y - 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y - 1, state: true });
+            if (newposition.x > 0 && newposition.x < 9) {
+              if (newposition.y > 0 && i === 0) {
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
+                ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y - 1, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
               }
 
-              if (position.y < 9 && i === length - 1) {
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y + 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x, y: position.y + 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y + 1, state: true });
+              if (newposition.y < 9 && i === length - 1) {
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
+                ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y + 1, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
               }
 
-              ship.spaceAroundShip.push({ x: position.x - 1, y: position.y, state: true });
-              ship.spaceAroundShip.push({ x: position.x + 1, y: position.y, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x - 1, y: newposition.y, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x + 1, y: newposition.y, state: true });
             }
 
-            if (position.x === 0) {
-              if (position.y > 0 && i === 0) {
-                ship.spaceAroundShip.push({ x: position.x, y: position.y - 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y - 1, state: true });
+            if (newposition.x === 0) {
+              if (newposition.y > 0 && i === 0) {
+                ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y - 1, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
               }
 
-              if (position.y < 9 && i === length - 1) {
-                ship.spaceAroundShip.push({ x: position.x, y: position.y + 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y + 1, state: true });
+              if (newposition.y < 9 && i === length - 1) {
+                ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y + 1, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
               }
 
-              ship.spaceAroundShip.push({ x: position.x + 1, y: position.y, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x + 1, y: newposition.y, state: true });
             }
 
-            if (position.x === 9) {
-              if (position.y > 0 && i === 0) {
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y - 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x, y: position.y - 1, state: true });
+            if (newposition.x === 9) {
+              if (newposition.y > 0 && i === 0) {
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
+                ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y - 1, state: true });
               }
 
-              if (position.y < 9 && i === length - 1) {
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y + 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x, y: position.y + 1, state: true });
+              if (newposition.y < 9 && i === length - 1) {
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
+                ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y + 1, state: true });
               }
 
-              ship.spaceAroundShip.push({ x: position.x - 1, y: position.y, state: true });
-              ship.spaceAroundShip.push({ x: position.x + 1, y: position.y, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x - 1, y: newposition.y, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x + 1, y: newposition.y, state: true });
             }
           } else {
-            if (position.y > 0 && position.y < 9) {
-              if (position.x > 0 && i === 0) {
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y + 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y, state: true });
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y - 1, state: true });
+            if (newposition.y > 0 && newposition.y < 9) {
+              if (newposition.x > 0 && i === 0) {
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
+                ship.spaceAroundShip.push({ x: newposition.x - 1, y: position.y, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
               }
 
-              if (position.x < 9 && i === length - 1) {
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y + 1, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y - 1, state: true });
+              if (newposition.x < 9 && i === length - 1) {
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
+                ship.spaceAroundShip.push({ x: newposition.x + 1, y: newposition.y, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
               }
 
-              ship.spaceAroundShip.push({ x: position.x, y: position.y - 1, state: true });
-              ship.spaceAroundShip.push({ x: position.x, y: position.y + 1, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y - 1, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y + 1, state: true });
             }
 
-            if (position.y === 0) {
+            if (newposition.y === 0) {
               if (position.x > 0 && i === 0) {
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y, state: true });
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y + 1, state: true });
+                ship.spaceAroundShip.push({ x: newposition.x - 1, y: newposition.y, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
               }
 
-              if (position.x < 9 && i === length - 1) {
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y + 1, state: true });
+              if (newposition.x < 9 && i === length - 1) {
+                ship.spaceAroundShip.push({ x: newposition.x + 1, y: newposition.y, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y + 1,
+                  state: true,
+                });
               }
 
-              ship.spaceAroundShip.push({ x: position.x, y: position.y + 1, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y + 1, state: true });
             }
 
-            if (position.y === 9) {
-              if (position.x > 0 && i === 0) {
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y, state: true });
-                ship.spaceAroundShip.push({ x: position.x - 1, y: position.y - 1, state: true });
+            if (newposition.y === 9) {
+              if (newposition.x > 0 && i === 0) {
+                ship.spaceAroundShip.push({ x: newposition.x - 1, y: newposition.y, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x - 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
               }
 
-              if (position.x < 9 && i === length - 1) {
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y, state: true });
-                ship.spaceAroundShip.push({ x: position.x + 1, y: position.y - 1, state: true });
+              if (newposition.x < 9 && i === length - 1) {
+                ship.spaceAroundShip.push({ x: newposition.x + 1, y: newposition.y, state: true });
+                ship.spaceAroundShip.push({
+                  x: newposition.x + 1,
+                  y: newposition.y - 1,
+                  state: true,
+                });
               }
 
-              ship.spaceAroundShip.push({ x: position.x, y: position.y - 1, state: true });
+              ship.spaceAroundShip.push({ x: newposition.x, y: newposition.y - 1, state: true });
             }
           }
         }
@@ -204,70 +274,166 @@ class SeaBattleGame {
       } else {
         this.gameDb.set(data.gameId, [playerShip]);
       }
-      console.log('shipDb: playerShip:', playerShip);
-      console.log('shipDb: currentPlayer', currentPlayer);
-      console.log('shipDb: player', data.indexPlayer);
+
       return wsId;
     } catch {
       return false;
     }
   }
+  createPlayerShotDb(gameId: number, indexPlayer: number): void {
+    const shotMatrix: shot[][] = Array.from({ length: 10 }, () => Array(10).fill(0));
+    if (this.shotDb.get(gameId)) {
+      this.shotDb.get(gameId)[indexPlayer] = shotMatrix;
+    } else {
+      this.shotDb.set(gameId, { [indexPlayer]: shotMatrix });
+    }
+  }
 
-  attack(data: IAttackRequest): IAttackResponse {
+  isShotExist(gameId: number, indexPlayer: number, { x, y }: IPosition): boolean {
+    const shotMatrix: shot[][] = this.shotDb.get(gameId)[indexPlayer];
+
+    return shotMatrix[y][x] === 1;
+  }
+
+  saveShot(gameId: number, indexPlayer: number, { x, y }: IPosition): void {
+    const shotMatrix: shot[][] = this.shotDb.get(gameId)[indexPlayer];
+    shotMatrix[y][x] = 1;
+  }
+
+  attack(data: IAttackRequest): IAttackResponse[] {
     try {
-      console.log('data to attack', data);
+      if (data.indexPlayer === this.currentPlayer.get(data.gameId)) {
+        if (!this.isShotExist(data.gameId, data.indexPlayer, { x: data.x, y: data.y })) {
+          this.saveShot(data.gameId, data.indexPlayer, { x: data.x, y: data.y });
+          const currentGameInfo = this.gameDb.get(data.gameId);
 
-      const currentGameInfo = this.gameDb.get(data.gameId);
+          const indexPlayersArr: number[] = [];
+          for (const player of currentGameInfo) {
+            indexPlayersArr.push(Number(Object.keys(player)[0]));
+          }
+          let currentStatus: statusCeil = 'miss';
+          const anotherIndexPlayer: number = indexPlayersArr.filter(
+            (index: number) => index !== data.indexPlayer
+          )[0];
 
-      const indexPlayersArr: number[] = [];
-      for (const player of currentGameInfo) {
-        indexPlayersArr.push(Number(Object.keys(player)[0]));
-        console.log(indexPlayersArr);
-      }
-      let currentStatus: statusCeil = 'miss';
-      const anotherIndexPlayer: number = indexPlayersArr.filter(
-        (index: number) => index !== data.indexPlayer
-      )[0];
+          const anotherPlayerIndexOfPlayersArr: number =
+            indexPlayersArr.indexOf(anotherIndexPlayer);
 
-      const anotherPlayerIndexOfPlayersArr: number = indexPlayersArr.indexOf(anotherIndexPlayer);
+          const shipsofAnotherPlayer: IShipDb[] =
+            currentGameInfo[anotherPlayerIndexOfPlayersArr][String(anotherIndexPlayer)];
 
-      const shipsofAnotherPlayer: IShipDb[] =
-        currentGameInfo[anotherPlayerIndexOfPlayersArr][String(anotherIndexPlayer)];
+          for (const ship of shipsofAnotherPlayer) {
+            for (const position of ship.position) {
+              if (position.x === data.x && position.y === data.y) {
+                position.state = false;
+                currentStatus = 'shot';
 
-      for (const ship of shipsofAnotherPlayer) {
-        for (const position of ship.position) {
-          console.log('position', position);
-          if (position.x === data.x && position.y === data.y) {
-            console.log("yes, it's hit");
-            position.state = false;
-            const allStatesAreFalse = ship.position.every((position) => position.state === false);
-            currentStatus = allStatesAreFalse ? 'killed' : 'shot';
-            console.log('currentStatus', currentStatus);
-            return {
+                const allStatesAreFalse = ship.position.every(
+                  (position) => position.state === false
+                );
+
+                if (allStatesAreFalse) {
+                  const allresponses: IAttackResponse[] = [];
+                  for (const position2 of ship.position) {
+                    const response: IAttackResponse = {
+                      position: {
+                        x: position2.x,
+                        y: position2.y,
+                      },
+                      currentPlayer: data.indexPlayer,
+                      status: 'killed',
+                    };
+                    allresponses.push(response);
+                  }
+                  for (const spaceAroundShip of ship.spaceAroundShip) {
+                    const response: IAttackResponse = {
+                      position: {
+                        x: spaceAroundShip.x,
+                        y: spaceAroundShip.y,
+                      },
+                      currentPlayer: data.indexPlayer,
+                      status: 'miss',
+                    };
+                    allresponses.push(response);
+                    this.saveShot(data.gameId, data.indexPlayer, {
+                      x: spaceAroundShip.x,
+                      y: spaceAroundShip.y,
+                    });
+                  }
+
+                  return allresponses;
+                }
+                return [
+                  {
+                    position: {
+                      x: data.x,
+                      y: data.y,
+                    },
+                    currentPlayer: data.indexPlayer,
+                    status: currentStatus,
+                  },
+                ];
+              }
+            }
+          }
+          this.currentPlayer.set(data.gameId, anotherIndexPlayer);
+          return [
+            {
               position: {
                 x: data.x,
                 y: data.y,
               },
               currentPlayer: data.indexPlayer,
               status: currentStatus,
-            };
-          }
+            },
+          ];
+        } else {
+          console.log('shot already exist');
         }
+      } else {
+        console.log("**********It's not your turn********");
       }
-      this.currentPlayer.set(data.gameId, anotherIndexPlayer);
-      return {
-        position: {
-          x: data.x,
-          y: data.y,
-        },
-        currentPlayer: data.indexPlayer,
-        status: currentStatus,
-      };
     } catch (err) {
-      console.log('Something went wrong', err);
+      console.log('Something went wrong in attack');
     }
   }
 
+  randomAttack(data: IRandomAttackRequest): IAttackResponse[] {
+    let count = 100;
+    const { x, y } = this.getRandomPosition();
+
+    const shotMatrix: shot[][] = this.shotDb.get(data.gameId)[data.indexPlayer];
+
+    if (!shotMatrix[y][x]) {
+      const requestAttack: IAttackRequest = {
+        gameId: data.gameId,
+        x,
+        y,
+        indexPlayer: data.indexPlayer,
+      };
+      return this.attack(requestAttack);
+    } else {
+      if (count > 0) {
+        count -= 1;
+        return this.randomAttack(data);
+      }
+    }
+  }
+
+  isGameFinish(gameId: number, indexAnotherPlayer: number): boolean {
+    const shipsofAnotherPlayer = this.gameDb
+      .get(gameId)
+      .filter((player) => player.hasOwnProperty(indexAnotherPlayer))[0][indexAnotherPlayer];
+    return shipsofAnotherPlayer.every((ship) =>
+      ship.position.every(({ state }) => state === false)
+    );
+  }
+  getRandomPosition(): IPosition {
+    const max = 10;
+    const randomX = Math.floor(Math.random() * max);
+    const randomY = Math.floor(Math.random() * max);
+    return { x: randomX, y: randomY };
+  }
   getTurn(gameID: number): IPlayerTurnResponse {
     return {
       currentPlayer: this.currentPlayer.get(gameID),
@@ -279,6 +445,13 @@ class SeaBattleGame {
   }
   getStartGameResponse(wsId: number): IStartGameResponse {
     return this.saveRequest.get(wsId);
+  }
+  getIndexesPlayersByGameId(gameId: number): indexPlayer[] {
+    const gameData = this.gameDb.get(gameId);
+    return gameData.map((el) => {
+      const playerName = Object.keys(el)[0];
+      return parseInt(playerName);
+    });
   }
 }
 
