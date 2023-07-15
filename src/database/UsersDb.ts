@@ -1,6 +1,8 @@
-import { IRegResponse, IUserInfo } from '../types/types';
+import { IRegResponse, IUserInfo, IUpdateWinner } from '../types/types';
 import { IRegRequest } from '../types/types';
-
+type userName = string;
+type indexPlayer = number;
+type winCount = number;
 interface IUserAuth {
   index: number;
   name: string;
@@ -9,12 +11,16 @@ interface IUserAuth {
 }
 
 class UsersDb {
-  database: Map<string, IUserAuth>;
+  database: Map<userName, IUserAuth>;
   userCount: number;
+  users: Map<indexPlayer, userName>;
+  winners: Map<userName, winCount>;
 
   constructor() {
     this.database = new Map();
     this.userCount = 0;
+    this.users = new Map();
+    this.winners = new Map();
   }
 
   addUsers(data: IRegRequest, wsId: number): IRegResponse {
@@ -37,7 +43,8 @@ class UsersDb {
       };
 
       this.database.set(data.name, newUser);
-
+      this.users.set(this.userCount, data.name);
+      this.winners.set(data.name, 0);
       return {
         name: newUser.name,
         index: newUser.index,
@@ -67,7 +74,7 @@ class UsersDb {
     };
   }
 
-  getUserInfo(userName: string): IUserAuth {
+  getUserInfo(userName: userName): IUserAuth {
     return this.database.get(userName);
   }
 
@@ -82,8 +89,27 @@ class UsersDb {
     return userInfo;
   }
 
-  isUserExist(userName: string) {
+  isUserExist(userName: userName) {
     return this.database.has(userName);
+  }
+
+  getUserNameByIndexPlayer(indexPlayer: number): userName {
+    return this.users.get(indexPlayer);
+  }
+
+  addWinToUserByName(userName: userName): void {
+    const currentCount = this.winners.get(userName) + 1;
+    this.winners.set(userName, currentCount);
+  }
+  getAllWinners(): IUpdateWinner[] {
+    const names = [...this.winners.keys()];
+
+    return names.map((name) => {
+      return {
+        name: name,
+        wins: `${this.winners.get(name)}`,
+      };
+    });
   }
 }
 
