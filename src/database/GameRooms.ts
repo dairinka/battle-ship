@@ -30,11 +30,14 @@ class GameRooms {
   }
 
   createRoom(userInfo: IUserInfo, wsId: number): IUpdateRoomStateResponse[] {
-    const roomNumber = this.roomInfo.size;
-
-    this.roomInfo.set(this.listRooms[0], {
-      user_1: [userInfo.name, userInfo.index, wsId],
-    });
+    for (let i = 0; i < this.listRooms.length; i++) {
+      if (!this.roomInfo.get(this.listRooms[i])) {
+        this.roomInfo.set(this.listRooms[i], {
+          user_1: [userInfo.name, userInfo.index, wsId],
+        });
+        break;
+      }
+    }
 
     const updateRoom = this.updateRoom();
     return updateRoom;

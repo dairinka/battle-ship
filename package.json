@@ -6,8 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node ./index.ts",
-    "start:dev": "nodemon --exec ts-node index.ts --project ./tsconfig.json",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start:dev": "nodemon --exec ts-node index.ts --project ./tsconfig.json"
   },
   "author": "Andrei Auchynnikau",
   "keywords": [],

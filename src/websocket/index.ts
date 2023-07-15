@@ -104,7 +104,9 @@ wss.on('connection', (ws: Websocket) => {
         currentGameRooms.closeRoom(currentRoom);
         wsIdArr.forEach((wsid) => {
           connectedWs.get(wsid).send(JSON.stringify(newServerAnswer));
-          connectedWs.get(wsid).send(JSON.stringify(updateWin));
+        });
+        connectedWs.forEach((connect, _) => {
+          connect.send(JSON.stringify(updateWin));
         });
       } else {
         const newServerAnswer: IServerResponse2 = {
@@ -157,9 +159,7 @@ wss.on('connection', (ws: Websocket) => {
         if (userRequest.type === 'attack') {
         }
       });
-    } catch (err) {
-      console.log('Something went wrong');
-    }
+    } catch {}
   });
 
   ws.on('close', () => {
